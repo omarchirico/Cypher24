@@ -7,6 +7,7 @@ import { ThemeSelector } from './ThemeSelector';
 import { LanguageSelector } from './LanguageSelector';
 import { compressUserPhoto, generateDefaultAvatar } from '../utils/avatar';
 import { PWAInstallButton } from './PWAInstallButton';
+import { apiUrl } from '../utils/api';
 import { Sparkles, Camera, ArrowRight, Lock, Clock, Smartphone, Upload, Globe } from 'lucide-react';
 
 interface Props {
@@ -88,22 +89,31 @@ export const Onboarding: React.FC<Props> = ({
       const finalAvatar = customPhoto || generateDefaultAvatar(cleanId);
       const finalDisplayName = displayName.trim() || cleanId;
 
-      // 2. Register public profile on server
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: cleanId,
-          displayName: finalDisplayName,
-          avatar: finalAvatar,
-          publicKey: keyBundle.publicKeyJwk,
-          language,
-        }),
-      });
+      // 2. Register public profile on server (if reachable)
+      try {
+        const res = await fetch(apiUrl('/api/users'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: cleanId,
+            displayName: finalDisplayName,
+            avatar: finalAvatar,
+            publicKey: keyBundle.publicKeyJwk,
+            language,
+          }),
+        });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Errore durante la registrazione ID');
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 400 && data.error) {
+            throw new Error(data.error);
+          }
+        }
+      } catch (netErr: any) {
+        if (netErr?.message && !netErr.message.includes('fetch')) {
+          throw netErr;
+        }
+        console.warn('Server registration skipped (offline/standalone):', netErr);
       }
 
       // 3. Save private key in device vault (IndexedDB)

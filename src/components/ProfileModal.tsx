@@ -5,6 +5,8 @@ import { LanguageSelector } from './LanguageSelector';
 import { t } from '../i18n/translations';
 import { compressUserPhoto, generateDefaultAvatar } from '../utils/avatar';
 import { PWAInstallButton } from './PWAInstallButton';
+import { DownloadHtmlButton } from './DownloadHtmlButton';
+import { getCustomServerUrl, setCustomServerUrl } from '../utils/api';
 import {
   getNotificationSettings,
   saveNotificationSettings,
@@ -77,9 +79,18 @@ export const ProfileModal: React.FC<Props> = ({
     getSystemNotificationPermission()
   );
   const [testSent, setTestSent] = useState(false);
+  const [customRelay, setCustomRelay] = useState(() => getCustomServerUrl());
+  const [relaySaved, setRelaySaved] = useState(false);
+
+  const handleSaveRelay = () => {
+    setCustomServerUrl(customRelay);
+    setRelaySaved(true);
+    setTimeout(() => setRelaySaved(false), 2000);
+  };
 
   useEffect(() => {
     setSysPermission(getSystemNotificationPermission());
+    setCustomRelay(getCustomServerUrl());
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -511,6 +522,36 @@ export const ProfileModal: React.FC<Props> = ({
               <p className="text-[11px] text-slate-400">{t('iphoneReadyDesc', currentLanguage)}</p>
             </div>
             <PWAInstallButton currentLanguage={currentLanguage} />
+          </div>
+
+          {/* Download Entire App as Standalone Single-file HTML */}
+          <DownloadHtmlButton currentLanguage={currentLanguage} variant="card" />
+
+          {/* Optional Relay Server for Standalone HTML */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-white">{t('relayServer', currentLanguage)}</span>
+              <span className="text-[10px] text-slate-400 font-mono">Standalone</span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">
+              {t('relayServerDesc', currentLanguage)}
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={customRelay}
+                onChange={(e) => setCustomRelay(e.target.value)}
+                placeholder="https://mio-server-cypher24.app"
+                className="flex-1 px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={handleSaveRelay}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-white font-medium transition cursor-pointer"
+              >
+                {relaySaved ? 'Salvato' : 'Salva'}
+              </button>
+            </div>
           </div>
 
           {/* Logout / Switch ID */}

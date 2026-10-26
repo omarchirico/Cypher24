@@ -2,5 +2,7 @@
   "name": "Cypher24 - Messaggistica Crittografata",
   "description": "Messaggistica crittografata end-to-end senza password con ID anonimo, eliminazione automatica dopo 24 ore, temi personalizzati e installabile su iPhone.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

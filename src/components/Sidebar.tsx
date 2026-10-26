@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { UserProfile, AppTheme, AppLanguage, ChatContact, GroupChat } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { DownloadHtmlButton } from './DownloadHtmlButton';
 import { LanguageSelector } from './LanguageSelector';
 import { t } from '../i18n/translations';
 import {
@@ -188,6 +189,7 @@ export const Sidebar: React.FC<Props> = ({
           </button>
 
           <div className="flex items-center gap-1">
+            <DownloadHtmlButton currentLanguage={currentLanguage} variant="compact" />
             <PWAInstallButton currentLanguage={currentLanguage} />
             <button
               onClick={onOpenProfile}

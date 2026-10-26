@@ -47,6 +47,7 @@ import {
   triggerHapticFeedback,
 } from './utils/notifications';
 import { playSendSound, playReceiveSound, playBurnSound } from './utils/audio';
+import { apiUrl } from './utils/api';
 import { Lock, Clock, QrCode, X, Users, Sparkles, Globe } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -54,7 +55,7 @@ import QRCode from 'qrcode';
 async function requestTranslation(text: string, targetLang: AppLanguage): Promise<string> {
   if (!text || !text.trim()) return text;
   try {
-    const res = await fetch('/api/translate', {
+    const res = await fetch(apiUrl('/api/translate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, targetLang }),
