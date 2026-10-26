@@ -1,0 +1,217 @@
+import React, { useState, useEffect } from 'react';
+import type { DecryptedMessage } from '../types';
+import { getRemainingTimeFormatted } from '../utils/avatar';
+import { AudioPlayerBubble } from './AudioPlayerBubble';
+import { Flame, Lock, CheckCheck, Eye, EyeOff, Play, ShieldAlert } from 'lucide-react';
+
+interface Props {
+  message: DecryptedMessage;
+  isMine: boolean;
+  onBurnMessage: (messageId: string) => void;
+  onOpenViewOnce: (message: DecryptedMessage) => void;
+  senderPhoto?: string;
+  senderName?: string;
+  isGroup?: boolean;
+}
+
+export const MessageBubble: React.FC<Props> = ({
+  message,
+  isMine,
+  onBurnMessage,
+  onOpenViewOnce,
+  senderPhoto,
+  senderName,
+  isGroup,
+}) => {
+  const [remaining, setRemaining] = useState(() => getRemainingTimeFormatted(message.expiresAt));
+
+  // Dynamic countdown interval
+  useEffect(() => {
+    const updateCountdown = () => {
+      setRemaining(getRemainingTimeFormatted(message.expiresAt));
+    };
+
+    updateCountdown();
+    const intervalMs = remaining.hours < 1 ? 1000 : 5000;
+    const timer = setInterval(updateCountdown, intervalMs);
+    return () => clearInterval(timer);
+  }, [message.expiresAt, remaining.hours]);
+
+  const timeFormatted = new Date(message.createdAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const expiresTimeFormatted = new Date(message.expiresAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const strokeDashoffset = 37.7 * (1 - remaining.pctRemaining / 100);
+
+  // View-Once status
+  const isViewOnceBurned = message.viewOnce && (message.viewed || message.isViewOnceOpenedLocally || !message.encryptedPayload);
+
+  return (
+    <div className={`flex items-end gap-2 group mb-3.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
+      {!isMine && (
+        <div className="flex flex-col items-center shrink-0 mb-1">
+          {senderPhoto ? (
+            <img
+              src={senderPhoto}
+              alt={senderName || 'Contact'}
+              className="w-7 h-7 rounded-full object-cover border border-white/10"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-[10px] text-white">
+              {(senderName || message.senderId).charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div
+        className={`relative max-w-[88%] sm:max-w-md rounded-2xl px-4 py-3 shadow-md border transition-all ${
+          isMine
+            ? 'bg-[var(--theme-bubble-sent)] border-[var(--theme-bubble-sent-border)] text-slate-100 rounded-br-xs'
+            : 'bg-[var(--theme-bubble-received)] border-[var(--theme-bubble-received-border)] text-slate-200 rounded-bl-xs'
+        }`}
+      >
+        {/* Group Sender Name Label */}
+        {isGroup && !isMine && (
+          <div className="text-[11px] font-semibold text-[var(--theme-accent-color)] mb-1">
+            @{message.senderId}
+          </div>
+        )}
+
+        {/* 1. VIEW ONCE MEDIA (Photo or Video) */}
+        {message.viewOnce ? (
+          isViewOnceBurned ? (
+            // Burned / Destroyed State
+            <div className="flex items-center gap-2.5 py-2 px-3 rounded-xl bg-black/40 border border-white/5 text-slate-400 text-xs">
+              <EyeOff className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="italic">
+                {message.messageType === 'video' ? 'Video visualizzato e autodistrutto' : 'Foto visualizzata e autodistrutta'}
+              </span>
+            </div>
+          ) : (
+            // Unopened View-Once Card
+            <button
+              type="button"
+              onClick={() => onOpenViewOnce(message)}
+              className="flex items-center gap-3 py-2.5 px-3.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-semibold transition active:scale-98 cursor-pointer w-full text-left shadow-sm"
+            >
+              <div className="w-8 h-8 rounded-full bg-amber-500 text-black flex items-center justify-center font-bold text-xs shrink-0">
+                1x
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="block font-bold">
+                  {message.messageType === 'video' ? 'Video (Visualizza 1 volta)' : 'Foto (Visualizza 1 volta)'}
+                </span>
+                <span className="text-[10px] text-amber-400/80 mt-0.5 block">
+                  Tocca per aprire · Si autodistruggerà
+                </span>
+              </div>
+              <Eye className="w-4 h-4 shrink-0 text-amber-300" />
+            </button>
+          )
+        ) : message.messageType === 'audio' && message.decryptedContent ? (
+          /* 2. VOICE NOTE PLAYER */
+          <AudioPlayerBubble
+            audioSrc={message.decryptedContent}
+            duration={message.audioDuration}
+            effect={message.audioEffect}
+            isMine={isMine}
+          />
+        ) : message.messageType === 'video' && message.decryptedContent ? (
+          /* 3. STANDARD VIDEO */
+          <div className="mb-2.5 rounded-xl overflow-hidden border border-black/20 bg-black">
+            <video
+              src={message.decryptedContent}
+              controls
+              playsInline
+              className="max-h-80 w-auto rounded-xl object-contain"
+            />
+          </div>
+        ) : message.messageType === 'image' && message.decryptedContent ? (
+          /* 4. STANDARD PHOTO */
+          <div className="mb-2.5 rounded-xl overflow-hidden border border-black/20">
+            <img
+              src={message.decryptedContent}
+              alt="Immagine cifrata"
+              className="max-h-80 w-auto object-cover rounded-xl"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          /* 5. TEXT MESSAGE */
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+            {message.decryptedContent || (
+              <span className="text-xs text-slate-400 italic flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 animate-pulse" /> Decifrazione in corso...
+              </span>
+            )}
+          </p>
+        )}
+
+        {/* Metadata bar: Visual Expiry Counter, Send Time, Checkmarks, Burn button */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-2 pt-1.5 border-t border-white/10 text-[10px]">
+          {/* Visual 24h Countdown Badge */}
+          <div
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-mono text-[10px] tabular-nums transition-colors shadow-xs ${
+              remaining.isUrgent
+                ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300 animate-pulse'
+                : 'bg-black/40 border border-white/10 text-slate-300'
+            }`}
+            title={`Eliminazione automatica programmata per le ${expiresTimeFormatted} (24h dall'invio)`}
+          >
+            {/* Circular mini gauge */}
+            <svg className="w-3.5 h-3.5 -rotate-90 shrink-0" viewBox="0 0 16 16">
+              <circle
+                cx="8"
+                cy="8"
+                r="6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                opacity="0.25"
+              />
+              <circle
+                cx="8"
+                cy="8"
+                r="6"
+                fill="none"
+                stroke={remaining.isUrgent ? '#f59e0b' : 'var(--theme-accent-color)'}
+                strokeWidth="2"
+                strokeDasharray="37.7"
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                className="transition-all duration-300"
+              />
+            </svg>
+
+            {/* Explicit Countdown Label */}
+            <span className="font-semibold tracking-tight text-[10px]">
+              {remaining.text}
+            </span>
+          </div>
+
+          {/* Time & Message status */}
+          <div className="flex items-center gap-1.5 text-slate-400 ml-auto">
+            <span className="tabular-nums font-mono text-[10px]">{timeFormatted}</span>
+            {isMine && <CheckCheck className="w-3.5 h-3.5 text-sky-400" />}
+
+            {/* Quick manual burn action button */}
+            <button
+              onClick={() => onBurnMessage(message.id)}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:text-rose-400 cursor-pointer ml-1"
+              title="Brucia ora (elimina subito)"
+            >
+              <Flame className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

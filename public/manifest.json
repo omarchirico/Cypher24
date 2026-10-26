@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Cypher24 - Messaggistica Crittografata",
+  "short_name": "Cypher24",
+  "description": "Messaggistica crittografata end-to-end senza password con ID anonimo, autodistruzione dopo 24 ore e supporto iPhone.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090a0f",
+  "theme_color": "#090a0f",
+  "categories": ["social", "security", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

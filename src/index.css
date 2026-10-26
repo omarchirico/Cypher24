@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    /* Default Theme: Nero (OLED Pitch Black) */
+    --theme-bg: #000000;
+    --theme-surface: #0c0d12;
+    --theme-surface-elevated: #151722;
+    --theme-surface-hover: #1c1f2e;
+    --theme-border: #232738;
+    --theme-border-subtle: #171a26;
+    --theme-accent: #f1f5f9;
+    --theme-accent-contrast: #030712;
+    --theme-accent-color: #38bdf8;
+    --theme-accent-glow: rgba(56, 189, 248, 0.25);
+    --theme-bubble-sent: #1e2230;
+    --theme-bubble-sent-border: #2e344a;
+    --theme-bubble-received: #0f1118;
+    --theme-bubble-received-border: #1b1e2c;
+    --theme-badge: #38bdf8;
+  }
+
+  [data-theme="nero"] {
+    --theme-bg: #000000;
+    --theme-surface: #0a0b0e;
+    --theme-surface-elevated: #14161d;
+    --theme-surface-hover: #1c1f29;
+    --theme-border: #222633;
+    --theme-border-subtle: #151720;
+    --theme-accent: #f8fafc;
+    --theme-accent-contrast: #000000;
+    --theme-accent-color: #e2e8f0;
+    --theme-accent-glow: rgba(248, 250, 252, 0.15);
+    --theme-bubble-sent: #1f2330;
+    --theme-bubble-sent-border: #2d3345;
+    --theme-bubble-received: #101217;
+    --theme-bubble-received-border: #1a1d26;
+    --theme-badge: #94a3b8;
+  }
+
+  [data-theme="verde"] {
+    --theme-bg: #020804;
+    --theme-surface: #06140b;
+    --theme-surface-elevated: #0b2214;
+    --theme-surface-hover: #10301d;
+    --theme-border: #154226;
+    --theme-border-subtle: #0d2817;
+    --theme-accent: #10b981;
+    --theme-accent-contrast: #021a0b;
+    --theme-accent-color: #34d399;
+    --theme-accent-glow: rgba(16, 185, 129, 0.28);
+    --theme-bubble-sent: #0c2b18;
+    --theme-bubble-sent-border: #19522f;
+    --theme-bubble-received: #07170c;
+    --theme-bubble-received-border: #0f301b;
+    --theme-badge: #10b981;
+  }
+
+  [data-theme="blu"] {
+    --theme-bg: #020612;
+    --theme-surface: #060f24;
+    --theme-surface-elevated: #0c1a3d;
+    --theme-surface-hover: #122554;
+    --theme-border: #19346e;
+    --theme-border-subtle: #0e1e40;
+    --theme-accent: #3b82f6;
+    --theme-accent-contrast: #030d22;
+    --theme-accent-color: #60a5fa;
+    --theme-accent-glow: rgba(59, 130, 246, 0.28);
+    --theme-bubble-sent: #0d224d;
+    --theme-bubble-sent-border: #1c3d82;
+    --theme-bubble-received: #081329;
+    --theme-bubble-received-border: #112347;
+    --theme-badge: #3b82f6;
+  }
+
+  [data-theme="viola"] {
+    --theme-bg: #060210;
+    --theme-surface: #0f0624;
+    --theme-surface-elevated: #1a0b3d;
+    --theme-surface-hover: #261157;
+    --theme-border: #381a78;
+    --theme-border-subtle: #200f45;
+    --theme-accent: #a855f7;
+    --theme-accent-contrast: #15032e;
+    --theme-accent-color: #c084fc;
+    --theme-accent-glow: rgba(168, 85, 247, 0.28);
+    --theme-bubble-sent: #210d4b;
+    --theme-bubble-sent-border: #3f198c;
+    --theme-bubble-received: #100626;
+    --theme-bubble-received-border: #210d47;
+    --theme-badge: #a855f7;
+  }
+
+  body {
+    background-color: var(--theme-bg);
+    color: #f1f5f9;
+    font-family: var(--font-sans);
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.4);
+}
+
+/* Safe area insets for iOS iPhone bottom bars */
+.pb-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+.pt-safe {
+  padding-top: max(8px, env(safe-area-inset-top, 8px));
+}
