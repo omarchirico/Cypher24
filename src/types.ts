@@ -1,10 +1,12 @@
 export type AppTheme = 'nero' | 'verde' | 'blu' | 'viola';
+export type AppLanguage = 'it' | 'en' | 'fr' | 'es' | 'zh' | 'ru';
 
 export interface UserProfile {
   userId: string;
   displayName: string;
   avatar: string;
   publicKey: JsonWebKey | null;
+  language?: AppLanguage;
   lastSeen: number;
   createdAt: number;
 }
@@ -34,6 +36,9 @@ export interface DecryptedMessage extends EncryptedMessageRecord {
   isDecrypted?: boolean;
   decryptionError?: boolean;
   isViewOnceOpenedLocally?: boolean;
+  translatedContent?: string;
+  isTranslated?: boolean;
+  showOriginal?: boolean;
 }
 
 export interface GroupChat {
@@ -53,6 +58,7 @@ export interface ChatContact {
   displayName: string;
   avatar: string;
   publicKey: JsonWebKey | null;
+  language?: AppLanguage;
   lastSeen: number;
   lastMessagePreview?: string;
   lastMessageTime?: number;

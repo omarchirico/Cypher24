@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Send, Image, Video, Mic, Lock, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
+import type { AppLanguage } from '../types';
+import { t } from '../i18n/translations';
+import { Send, Image, Video, Mic, Lock, Loader2 } from 'lucide-react';
 import { compressUserPhoto } from '../utils/avatar';
 
 interface Props {
@@ -11,6 +13,7 @@ interface Props {
   onOpenVoiceRecorder: () => void;
   targetName: string;
   disabled?: boolean;
+  currentLanguage?: AppLanguage;
 }
 
 export const ChatInput: React.FC<Props> = ({
@@ -18,6 +21,7 @@ export const ChatInput: React.FC<Props> = ({
   onOpenVoiceRecorder,
   targetName,
   disabled,
+  currentLanguage = 'it',
 }) => {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -104,14 +108,14 @@ export const ChatInput: React.FC<Props> = ({
             <span className="w-4 h-4 rounded-full bg-amber-500 text-black font-bold flex items-center justify-center text-[9px]">
               1x
             </span>
-            <span>Visualizzazione Singola: il prossimo file multimediale si autodistruggerà appena aperto</span>
+            <span>{t('viewOnceBanner', currentLanguage)}</span>
           </div>
           <button
             type="button"
             onClick={() => setViewOnce(false)}
             className="text-xs hover:underline text-amber-200 cursor-pointer"
           >
-            Disattiva
+            {t('cancel', currentLanguage)}
           </button>
         </div>
       )}
@@ -143,7 +147,7 @@ export const ChatInput: React.FC<Props> = ({
               ? 'bg-amber-500 text-black border-amber-400 shadow-md shadow-amber-500/20'
               : 'bg-white/5 hover:bg-white/10 text-slate-300 border-white/10'
           }`}
-          title="Attiva/Disattiva 'Visualizza una volta' per foto o video"
+          title={t('viewOnce', currentLanguage)}
         >
           <span className="text-[11px]">1x</span>
         </button>
@@ -154,7 +158,7 @@ export const ChatInput: React.FC<Props> = ({
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled || isSending}
           className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition disabled:opacity-40 cursor-pointer shrink-0"
-          title="Invia foto cifrata"
+          title={t('sendPhoto', currentLanguage)}
         >
           <Image className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -165,7 +169,7 @@ export const ChatInput: React.FC<Props> = ({
           onClick={() => videoInputRef.current?.click()}
           disabled={disabled || isSending}
           className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition disabled:opacity-40 cursor-pointer shrink-0"
-          title="Invia video cifrato"
+          title={t('sendVideo', currentLanguage)}
         >
           <Video className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -176,7 +180,7 @@ export const ChatInput: React.FC<Props> = ({
           onClick={onOpenVoiceRecorder}
           disabled={disabled || isSending}
           className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition disabled:opacity-40 cursor-pointer shrink-0"
-          title="Registra messaggio vocale con opzione voce modificata"
+          title={t('recordVoice', currentLanguage)}
         >
           <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -190,10 +194,10 @@ export const ChatInput: React.FC<Props> = ({
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={disabled}
-            placeholder={`Messaggio cifrato per ${targetName}...`}
+            placeholder={`${t('typeMessage', currentLanguage)} ${targetName}...`}
             className="w-full resize-none py-2.5 pl-3.5 pr-8 rounded-2xl bg-black/50 border border-white/10 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[var(--theme-accent-color)] max-h-32 transition"
           />
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500" title="Cifrato End-to-End">
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500" title="E2E">
             <Lock className="w-3.5 h-3.5 text-slate-500" />
           </div>
         </div>
@@ -204,7 +208,7 @@ export const ChatInput: React.FC<Props> = ({
           onClick={() => handleSubmit()}
           disabled={!text.trim() || isSending || disabled}
           className="p-2.5 rounded-xl bg-[var(--theme-accent-color)] text-black font-semibold hover:brightness-110 active:scale-95 transition disabled:opacity-30 disabled:pointer-events-none cursor-pointer shrink-0 shadow-md"
-          title="Invia messaggio (scade tra 24h)"
+          title="Invia"
         >
           {isSending ? (
             <Loader2 className="w-5 h-5 animate-spin text-black" />
@@ -216,12 +220,12 @@ export const ChatInput: React.FC<Props> = ({
 
       <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 max-w-4xl mx-auto px-1">
         <span className="flex items-center gap-1 font-mono">
-          <Lock className="w-3 h-3 text-emerald-400" /> E2E Attiva
+          <Lock className="w-3 h-3 text-emerald-400" /> {t('e2eActive', currentLanguage)}
         </span>
         <span className="flex items-center gap-2">
-          <span>Vocali con Tono Alto/Basso</span>
+          <span>{t('highVoice', currentLanguage)} / {t('lowVoice', currentLanguage)}</span>
           <span>·</span>
-          <span>Scadenza automatica a 24h</span>
+          <span>{t('wipe24h', currentLanguage)}</span>
         </span>
       </div>
     </div>

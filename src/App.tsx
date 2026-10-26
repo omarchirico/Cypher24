@@ -5,6 +5,7 @@ import type {
   ChatContact,
   GroupChat,
   AppTheme,
+  AppLanguage,
   ActiveTarget,
   AudioPitchEffect,
   MessageType,
@@ -16,6 +17,11 @@ import {
   saveLocalIdentity,
   clearLocalIdentity,
 } from './crypto/storage';
+import {
+  getSavedLanguage,
+  saveLanguage,
+  t,
+} from './i18n/translations';
 import {
   encryptMessage,
   decryptMessage,
@@ -41,8 +47,26 @@ import {
   triggerHapticFeedback,
 } from './utils/notifications';
 import { playSendSound, playReceiveSound, playBurnSound } from './utils/audio';
-import { Shield, Lock, Clock, QrCode, X, Users, Sparkles } from 'lucide-react';
+import { Lock, Clock, QrCode, X, Users, Sparkles, Globe } from 'lucide-react';
 import QRCode from 'qrcode';
+
+// Helper to translate text using backend Gemini API
+async function requestTranslation(text: string, targetLang: AppLanguage): Promise<string> {
+  if (!text || !text.trim()) return text;
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, targetLang }),
+    });
+    if (!res.ok) return text;
+    const data = await res.json();
+    return data.translatedText || text;
+  } catch (err) {
+    console.warn('Translation request failed:', err);
+    return text;
+  }
+}
 
 // Group symmetric AES-GCM Key derivation
 async function getGroupCryptoKey(groupId: string): Promise<CryptoKey> {
@@ -99,6 +123,11 @@ async function decryptGroupPayload(encryptedPayloadStr: string, groupId: string)
 export default function App() {
   const [identity, setIdentity] = useState<any | null>(null);
   const [theme, setTheme] = useState<AppTheme>(() => getSavedTheme());
+  const [language, setLanguage] = useState<AppLanguage>(() => getSavedLanguage());
+  const [autoTranslate, setAutoTranslate] = useState<boolean>(() => {
+    const saved = localStorage.getItem('cypher24_autotranslate');
+    return saved === null ? true : saved === 'true';
+  });
   const [isVaultLoading, setIsVaultLoading] = useState(true);
 
   // Active Target (Direct User or Group)
@@ -129,6 +158,12 @@ export default function App() {
   const activeTargetRef = useRef<ActiveTarget | null>(null);
   activeTargetRef.current = activeTarget;
 
+  const languageRef = useRef(language);
+  languageRef.current = language;
+
+  const autoTranslateRef = useRef(autoTranslate);
+  autoTranslateRef.current = autoTranslate;
+
   // Clear unread title indicator on window focus
   useEffect(() => {
     const handleFocus = () => {
@@ -144,6 +179,11 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Sync HTML lang attribute
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', language);
+  }, [language]);
+
   const handleSelectTheme = (newTheme: AppTheme) => {
     setTheme(newTheme);
     saveTheme(newTheme);
@@ -152,6 +192,79 @@ export default function App() {
       setIdentity(updated);
       saveLocalIdentity(updated);
     }
+  };
+
+  const handleSelectLanguage = async (newLang: AppLanguage) => {
+    setLanguage(newLang);
+    saveLanguage(newLang);
+    if (identity) {
+      const updated = { ...identity, language: newLang };
+      setIdentity(updated);
+      saveLocalIdentity(updated);
+      fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: updated.userId,
+          displayName: updated.displayName,
+          avatar: updated.avatar,
+          publicKey: updated.keys.publicKeyJwk,
+          language: newLang,
+        }),
+      }).catch(console.warn);
+    }
+
+    // Re-translate current chat messages if autoTranslate is active
+    if (autoTranslate) {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.messageType === 'text' && m.decryptedContent && m.senderId !== identity?.userId) {
+            requestTranslation(m.decryptedContent, newLang).then((translated) => {
+              setMessages((currentMsgs) =>
+                currentMsgs.map((cur) =>
+                  cur.id === m.id
+                    ? { ...cur, translatedContent: translated, isTranslated: true, showOriginal: false }
+                    : cur
+                )
+              );
+            });
+          }
+          return m;
+        })
+      );
+    }
+  };
+
+  const handleToggleAutoTranslate = () => {
+    const newVal = !autoTranslate;
+    setAutoTranslate(newVal);
+    localStorage.setItem('cypher24_autotranslate', String(newVal));
+
+    if (newVal && identity) {
+      // Trigger translations for visible messages
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.messageType === 'text' && m.decryptedContent && m.senderId !== identity.userId && !m.translatedContent) {
+            requestTranslation(m.decryptedContent, language).then((translated) => {
+              setMessages((currentMsgs) =>
+                currentMsgs.map((cur) =>
+                  cur.id === m.id
+                    ? { ...cur, translatedContent: translated, isTranslated: true, showOriginal: false }
+                    : cur
+                )
+              );
+            });
+          }
+          return m;
+        })
+      );
+    }
+  };
+
+  const handleToggleOriginal = (messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, showOriginal: !m.showOriginal } : m))
+    );
   };
 
   // 1. Initial Load: Retrieve local vault identity
@@ -165,6 +278,10 @@ export default function App() {
             setTheme(stored.theme);
             saveTheme(stored.theme);
           }
+          if (stored.language) {
+            setLanguage(stored.language);
+            saveLanguage(stored.language);
+          }
           fetch('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -173,6 +290,7 @@ export default function App() {
               displayName: stored.displayName,
               avatar: stored.avatar,
               publicKey: stored.keys.publicKeyJwk,
+              language: stored.language || language,
             }),
           }).catch(console.warn);
         }
@@ -214,29 +332,19 @@ export default function App() {
         };
       }
 
-      if (msg.groupId) {
-        const content = await decryptGroupPayload(msg.encryptedPayload, msg.groupId);
-        return {
-          ...msg,
-          decryptedContent: content,
-          isDecrypted: true,
-        };
-      }
+      let content = '';
 
-      if (peerPublicJwk && peerId && myId) {
+      if (msg.groupId) {
+        content = await decryptGroupPayload(msg.encryptedPayload, msg.groupId);
+      } else if (peerPublicJwk && peerId && myId) {
         try {
-          const content = await decryptMessage(
+          content = await decryptMessage(
             msg.encryptedPayload,
             myPrivateJwk,
             peerPublicJwk,
             peerId,
             myId
           );
-          return {
-            ...msg,
-            decryptedContent: content,
-            isDecrypted: true,
-          };
         } catch {
           return {
             ...msg,
@@ -246,7 +354,33 @@ export default function App() {
         }
       }
 
-      return { ...msg };
+      const res: DecryptedMessage = {
+        ...msg,
+        decryptedContent: content,
+        isDecrypted: true,
+      };
+
+      // Automatic Translation check: if incoming text message, translate to recipient's language
+      if (
+        content &&
+        msg.messageType === 'text' &&
+        myId &&
+        msg.senderId !== myId &&
+        autoTranslateRef.current
+      ) {
+        try {
+          const translated = await requestTranslation(content, languageRef.current);
+          if (translated && translated !== content) {
+            res.translatedContent = translated;
+            res.isTranslated = true;
+            res.showOriginal = false;
+          }
+        } catch (e) {
+          console.warn('Auto translation error:', e);
+        }
+      }
+
+      return res;
     },
     []
   );
@@ -333,7 +467,7 @@ export default function App() {
               const last = list[list.length - 1];
               let preview = '';
               if (last) {
-                if (last.viewOnce) preview = '🔒 Media (Visualizza 1 volta)';
+                if (last.viewOnce) preview = '🔒 Media (1x)';
                 else if (last.messageType === 'audio') preview = '🎤 Vocale cifrato';
                 else if (last.messageType === 'video') preview = '🎬 Video cifrato';
                 else if (last.messageType === 'image') preview = '📷 Foto cifrata';
@@ -388,7 +522,7 @@ export default function App() {
         let preview = '';
         if (lastMsg) {
           if (lastMsg.viewOnce) {
-            preview = '🔒 Media (Visualizza 1 volta)';
+            preview = '🔒 Media (1x)';
           } else if (lastMsg.messageType === 'audio') {
             preview = '🎤 Vocale cifrato';
           } else if (lastMsg.messageType === 'video') {
@@ -506,13 +640,11 @@ export default function App() {
                 const isAppVisibleAndOnChat = !document.hidden && isForActive;
 
                 if (!isAppVisibleAndOnChat) {
-                  // Increment window unread count
                   unreadCounterRef.current += 1;
-                  document.title = `(${unreadCounterRef.current}) Cypher24 - Messaggistica Crittografata`;
+                  document.title = `(${unreadCounterRef.current}) Cypher24`;
 
-                  // Determine content summary for notification
                   let previewText = 'Nuovo messaggio cifrato';
-                  if (msg.viewOnce) previewText = '🔒 Media (Visualizza 1 volta)';
+                  if (msg.viewOnce) previewText = '🔒 Media (1x)';
                   else if (msg.messageType === 'audio') previewText = '🎤 Messaggio vocale';
                   else if (msg.messageType === 'video') previewText = '🎬 Video';
                   else if (msg.messageType === 'image') previewText = '📷 Foto';
@@ -529,7 +661,7 @@ export default function App() {
                     triggerSystemNotification({
                       title: notifSettings.previewEnabled ? notificationTitle : 'Cypher24',
                       body: notifSettings.previewEnabled ? previewText : 'Nuovo messaggio cifrato ricevuto',
-                      icon: groupObj?.avatar || '/icon.svg',
+                      icon: groupObj?.avatar || '/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg',
                       onClick: () => {
                         if (msg.groupId && groupObj) {
                           setActiveTarget({ type: 'group', group: groupObj });
@@ -542,7 +674,7 @@ export default function App() {
                     });
                   }
 
-                  // 4. In-App Notification Toast (if user is viewing another chat or sidebar)
+                  // 4. In-App Notification Toast
                   if (!isForActive) {
                     setToastData({
                       id: msg.id,
@@ -557,7 +689,6 @@ export default function App() {
 
               refreshContactsAndGroups();
             } else if (data.type === 'message_viewed') {
-              // A view-once message was viewed and destroyed
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === data.messageId
@@ -823,6 +954,7 @@ export default function App() {
         displayName: updated.displayName,
         avatar: updated.avatar,
         publicKey: updated.keys.publicKeyJwk,
+        language,
       }),
     });
   };
@@ -876,11 +1008,13 @@ export default function App() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center animate-pulse">
-            <Lock className="w-6 h-6 text-sky-400" />
-          </div>
+          <img
+            src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+            alt="Cypher24"
+            className="w-14 h-14 rounded-2xl object-cover animate-pulse shadow-lg ring-2 ring-sky-500/30"
+          />
           <span className="text-xs text-slate-400 font-mono tracking-wider">
-            Accesso al caveau crittografico...
+            {t('creatingKeys', language)}
           </span>
         </div>
       </div>
@@ -891,9 +1025,14 @@ export default function App() {
     return (
       <Onboarding
         initialTheme={theme}
+        initialLanguage={language}
+        onLanguageChange={handleSelectLanguage}
         onCompleted={(newId) => {
           setIdentity(newId);
           setTheme(newId.theme || 'nero');
+          if (newId.language) {
+            setLanguage(newId.language);
+          }
         }}
       />
     );
@@ -904,6 +1043,7 @@ export default function App() {
     displayName: identity.displayName,
     avatar: identity.avatar,
     publicKey: identity.keys.publicKeyJwk,
+    language,
     lastSeen: Date.now(),
     createdAt: Date.now(),
   };
@@ -946,6 +1086,8 @@ export default function App() {
           currentTheme={theme}
           onSelectTheme={handleSelectTheme}
           onShowQR={handleShowQR}
+          currentLanguage={language}
+          onSelectLanguage={handleSelectLanguage}
         />
       </div>
 
@@ -964,6 +1106,7 @@ export default function App() {
               onOpenSafetyNumber={() => setShowSafetyModal(true)}
               onOpenGroupInfo={() => setShowGroupInfo(true)}
               onBurnConversation={handleBurnConversation}
+              currentLanguage={language}
             />
 
             {/* Messages Feed */}
@@ -973,27 +1116,27 @@ export default function App() {
                   <Lock className="w-3.5 h-3.5 text-emerald-400" />
                   <span>
                     {activeTarget.type === 'group'
-                      ? 'Cifratura di Gruppo Protetta'
-                      : 'Crittografia End-to-End Attiva'}
+                      ? t('groupEncrypted', language)
+                      : t('e2eActive', language)}
                   </span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
                   {activeTarget.type === 'group'
-                    ? `I messaggi nel gruppo "${activeTarget.group.name}" sono cifrati. Nessun intermediario può leggerli.`
-                    : `I messaggi con @${activeTarget.user.userId} sono protetti con Web Crypto P-256 e AES-GCM.`}
+                    ? `Messaggi crittografati nel gruppo "${activeTarget.group.name}".`
+                    : `Conversazione cifrata end-to-end con @${activeTarget.user.userId}.`}
                 </p>
                 <div className="inline-flex items-center gap-1 text-[10px] text-sky-400 pt-0.5 font-mono">
                   <Clock className="w-3 h-3" />
-                  <span>Autodistruzione definitiva programmata dopo 24 ore</span>
+                  <span>{t('autoWipe', language)}</span>
                 </div>
               </div>
 
               {messages.length === 0 ? (
                 <div className="py-16 text-center text-slate-500 text-xs">
                   <Sparkles className="w-6 h-6 mx-auto mb-2 text-slate-600" />
-                  <p className="text-slate-400 font-semibold">Nessun messaggio recente</p>
+                  <p className="text-slate-400 font-semibold">{t('noMessages', language)}</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Invia un testo, una foto, un video (anche a visualizzazione singola) o un vocale modificato!
+                    {t('noMessagesDesc', language)}
                   </p>
                 </div>
               ) : (
@@ -1004,6 +1147,7 @@ export default function App() {
                     isMine={m.senderId === identity.userId}
                     onBurnMessage={handleBurnMessage}
                     onOpenViewOnce={handleOpenViewOnce}
+                    onToggleOriginal={handleToggleOriginal}
                     senderPhoto={
                       m.senderId === identity.userId
                         ? identity.avatar
@@ -1013,6 +1157,7 @@ export default function App() {
                     }
                     senderName={m.senderId}
                     isGroup={activeTarget.type === 'group'}
+                    currentLanguage={language}
                   />
                 ))
               )}
@@ -1026,21 +1171,27 @@ export default function App() {
               onOpenVoiceRecorder={() => setShowVoiceRecorder(true)}
               targetName={currentChatName}
               disabled={activeTarget.type === 'direct' && !activeTarget.user.publicKey}
+              currentLanguage={language}
             />
           </>
         ) : (
-          /* Empty Chat Placeholder */
+          /* Empty Chat Placeholder with Logo */
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-[var(--theme-surface-elevated)] border border-[var(--theme-border)] flex items-center justify-center text-[var(--theme-accent-color)] shadow-xl">
-              <Shield className="w-8 h-8" />
+            <div className="relative group">
+              <img
+                src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+                alt="Cypher24 Logo"
+                className="w-24 h-24 rounded-3xl object-cover shadow-2xl ring-2 ring-[var(--theme-accent-color)]/50"
+              />
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-black" />
             </div>
 
             <div className="max-w-sm space-y-2">
               <h2 className="text-xl font-bold text-white tracking-tight">
-                Cypher24 · Messaggistica Effimera
+                {t('appTitle', language)}
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Avvia una chat diretta con un ID, crea un gruppo cifrato, oppure invia vocali e foto a visualizzazione singola.
+                {t('appSubtitle', language)}
               </p>
             </div>
 
@@ -1050,14 +1201,14 @@ export default function App() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--theme-accent-color)] text-black font-semibold text-xs transition cursor-pointer hover:brightness-110"
               >
                 <Users className="w-4 h-4" />
-                <span>Crea Nuovo Gruppo</span>
+                <span>{t('newGroup', language)}</span>
               </button>
               <button
                 onClick={handleShowQR}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-200 border border-white/10 transition cursor-pointer"
               >
                 <QrCode className="w-4 h-4 text-sky-400" />
-                <span>Condividi il tuo ID @{identity.userId}</span>
+                <span>{t('shareId', language)} @{identity.userId}</span>
               </button>
             </div>
           </div>
@@ -1114,6 +1265,10 @@ export default function App() {
         <ProfileModal
           user={currentUserProfile}
           currentTheme={theme}
+          currentLanguage={language}
+          onSelectLanguage={handleSelectLanguage}
+          autoTranslate={autoTranslate}
+          onToggleAutoTranslate={handleToggleAutoTranslate}
           isOpen={showProfileModal}
           onClose={() => setShowProfileModal(false)}
           onUpdateProfile={handleUpdateProfile}
@@ -1146,9 +1301,9 @@ export default function App() {
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold">Condividi con iPhone</h3>
+            <h3 className="text-base font-bold">{t('showQr', language)}</h3>
             <p className="text-xs text-slate-400 mt-1 mb-4">
-              Scansiona con la fotocamera per aprire la chat direttamente
+              Scansiona con la fotocamera per aprire la chat
             </p>
 
             <div className="p-3 bg-white rounded-2xl inline-block shadow-xl">
@@ -1156,14 +1311,14 @@ export default function App() {
             </div>
 
             <div className="mt-4 font-mono text-xs text-slate-300">
-              Il tuo ID: <span className="font-bold text-white">@{identity.userId}</span>
+              ID: <span className="font-bold text-white">@{identity.userId}</span>
             </div>
 
             <button
               onClick={() => setShowQRModal(false)}
               className="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white transition cursor-pointer"
             >
-              Fatto
+              Chiudi
             </button>
           </div>
         </div>

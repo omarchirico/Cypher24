@@ -1,15 +1,19 @@
 import React, { useState, useRef } from 'react';
-import type { AppTheme } from '../types';
+import type { AppTheme, AppLanguage } from '../types';
 import { generateKeyPair } from '../crypto/e2e';
 import { saveLocalIdentity, saveTheme } from '../crypto/storage';
+import { saveLanguage, t } from '../i18n/translations';
 import { ThemeSelector } from './ThemeSelector';
+import { LanguageSelector } from './LanguageSelector';
 import { compressUserPhoto, generateDefaultAvatar } from '../utils/avatar';
 import { PWAInstallButton } from './PWAInstallButton';
-import { Shield, Sparkles, Camera, ArrowRight, Lock, Clock, Smartphone, Upload } from 'lucide-react';
+import { Sparkles, Camera, ArrowRight, Lock, Clock, Smartphone, Upload, Globe } from 'lucide-react';
 
 interface Props {
   onCompleted: (identity: any) => void;
   initialTheme: AppTheme;
+  initialLanguage: AppLanguage;
+  onLanguageChange: (lang: AppLanguage) => void;
 }
 
 const RANDOM_NAMES = [
@@ -24,11 +28,17 @@ function generateRandomId(): string {
   return `${name}_${num}`;
 }
 
-export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
+export const Onboarding: React.FC<Props> = ({
+  onCompleted,
+  initialTheme,
+  initialLanguage,
+  onLanguageChange,
+}) => {
   const [userId, setUserId] = useState(() => generateRandomId());
   const [displayName, setDisplayName] = useState('');
   const [customPhoto, setCustomPhoto] = useState<string>('');
   const [theme, setTheme] = useState<AppTheme>(initialTheme);
+  const [language, setLanguage] = useState<AppLanguage>(initialLanguage);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,6 +61,12 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
   const handleSelectTheme = (newTheme: AppTheme) => {
     setTheme(newTheme);
     saveTheme(newTheme);
+  };
+
+  const handleSelectLanguage = (newLang: AppLanguage) => {
+    setLanguage(newLang);
+    saveLanguage(newLang);
+    onLanguageChange(newLang);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +97,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
           displayName: finalDisplayName,
           avatar: finalAvatar,
           publicKey: keyBundle.publicKeyJwk,
+          language,
         }),
       });
 
@@ -96,6 +113,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
         avatar: finalAvatar,
         keys: keyBundle,
         theme,
+        language,
       };
 
       await saveLocalIdentity(identity);
@@ -112,50 +130,85 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
 
   return (
     <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 lg:p-8 max-w-2xl mx-auto">
-      {/* Top Bar with PWA Notice */}
+      {/* Top Bar with Logo & PWA Notice */}
       <header className="flex items-center justify-between py-2">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 via-sky-400 to-purple-500 p-[2px]">
-            <div className="w-full h-full bg-black rounded-[10px] flex items-center justify-center">
-              <Shield className="w-5 h-5 text-sky-400" />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <img
+              src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+              alt="Cypher24 Logo"
+              className="w-10 h-10 rounded-2xl object-cover shadow-lg ring-2 ring-emerald-500/30"
+            />
+            <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-black" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">Cypher24</span>
+          <div>
+            <span className="font-extrabold text-lg tracking-tight text-white block leading-tight">
+              Cypher24
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              E2E · 24H WIPE
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <PWAInstallButton />
+          <PWAInstallButton currentLanguage={language} />
         </div>
       </header>
 
       {/* Main Card */}
-      <main className="my-auto py-8">
+      <main className="my-auto py-6">
         <div className="rounded-3xl bg-[var(--theme-surface)] border border-[var(--theme-border)] shadow-2xl p-6 sm:p-8 space-y-6">
-          <div className="text-center space-y-2">
+          {/* Header with App Logo Badge */}
+          <div className="text-center space-y-3">
+            <div className="inline-block relative">
+              <img
+                src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+                alt="Cypher24 Emblem"
+                className="w-20 h-20 rounded-3xl object-cover mx-auto shadow-2xl ring-2 ring-[var(--theme-accent-color)]/40"
+              />
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Messaggistica Privata a 24 Ore
+              {t('loginTitle', language)}
             </h1>
             <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Nessuna password, nessuna email. Crea un ID anonimo protetto da crittografia end-to-end con autodistruzione totale dei messaggi.
+              {t('appSubtitle', language)}
             </p>
           </div>
 
+          {/* Language Selection Bar */}
+          <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span>{t('chooseLanguage', language)}</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono uppercase">
+                6 lingue supportate
+              </span>
+            </div>
+            <LanguageSelector
+              currentLanguage={language}
+              onSelectLanguage={handleSelectLanguage}
+            />
+          </div>
+
           {/* Core Guarantees Banner */}
-          <div className="grid grid-cols-3 gap-2.5 py-2 text-center text-xs">
+          <div className="grid grid-cols-3 gap-2.5 py-1 text-center text-xs">
             <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center">
               <Lock className="w-4 h-4 text-emerald-400 mb-1.5" />
-              <span className="font-semibold text-white">Zero Password</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Basta solo un ID</span>
+              <span className="font-semibold text-white">{t('zeroPassword', language)}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('zeroPasswordDesc', language)}</span>
             </div>
             <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center">
               <Clock className="w-4 h-4 text-sky-400 mb-1.5" />
-              <span className="font-semibold text-white">Wipe in 24h</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Messaggi autodistrutti</span>
+              <span className="font-semibold text-white">{t('wipe24h', language)}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('wipe24hDesc', language)}</span>
             </div>
             <div className="p-3 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center">
               <Smartphone className="w-4 h-4 text-purple-400 mb-1.5" />
-              <span className="font-semibold text-white">Su iPhone & Web</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">PWA istantanea</span>
+              <span className="font-semibold text-white">{t('iphoneReady', language)}</span>
+              <span className="text-[10px] text-slate-400 mt-0.5">{t('iphoneReadyDesc', language)}</span>
             </div>
           </div>
 
@@ -178,7 +231,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white cursor-pointer"
-                  title="Carica foto profilo"
+                  title={t('photoProfile', language)}
                 >
                   <Camera className="w-5 h-5" />
                 </button>
@@ -186,19 +239,19 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
 
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-white">Foto Profilo (Opzionale)</span>
+                  <span className="text-xs font-semibold text-white">{t('photoProfile', language)}</span>
                   {customPhoto && (
                     <button
                       type="button"
                       onClick={() => setCustomPhoto('')}
                       className="text-[11px] text-rose-400 hover:underline cursor-pointer"
                     >
-                      Rimuovi
+                      {t('removePhoto', language)}
                     </button>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Puoi caricare una foto dal tuo dispositivo o fotocamera
+                  Foto da fotocamera o galleria (opzionale)
                 </p>
                 <div className="mt-2">
                   <input
@@ -214,7 +267,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs text-slate-200 border border-white/10 transition cursor-pointer"
                   >
                     <Upload className="w-3.5 h-3.5" />
-                    <span>{customPhoto ? 'Cambia foto' : 'Scegli foto profilo'}</span>
+                    <span>{customPhoto ? t('changePhoto', language) : t('choosePhoto', language)}</span>
                   </button>
                 </div>
               </div>
@@ -224,7 +277,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-slate-300">
-                  Scegli il tuo ID Univoco *
+                  {t('chooseId', language)}
                 </label>
                 <button
                   type="button"
@@ -232,7 +285,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
                   className="flex items-center gap-1 text-[11px] text-[var(--theme-accent-color)] hover:underline cursor-pointer"
                 >
                   <Sparkles className="w-3 h-3" />
-                  <span>Genera Casuale</span>
+                  <span>{t('generateRandom', language)}</span>
                 </button>
               </div>
 
@@ -248,20 +301,20 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
                 />
               </div>
               <p className="text-[11px] text-slate-500">
-                I tuoi contatti utilizzeranno questo ID per trovarti e avviare conversazioni cifrate.
+                {t('idHelper', language)}
               </p>
             </div>
 
             {/* Optional Nickname / Display Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 block">
-                Nome o Pseudonimo (Opzionale)
+                {t('displayName', language)}
               </label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Es. Anon, Marco, Alex..."
+                placeholder="Es. Marco, Alex, Anon..."
                 className="w-full px-4 py-2.5 rounded-2xl bg-black/60 border border-white/15 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-[var(--theme-accent-color)] transition"
               />
             </div>
@@ -269,7 +322,7 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
             {/* Theme Selector */}
             <div className="space-y-2.5">
               <label className="text-xs font-semibold text-slate-300 block">
-                Scegli il Tema: Nero, Verde, Blu o Viola
+                {t('chooseTheme', language)}
               </label>
               <ThemeSelector currentTheme={theme} onSelectTheme={handleSelectTheme} />
             </div>
@@ -281,10 +334,10 @@ export const Onboarding: React.FC<Props> = ({ onCompleted, initialTheme }) => {
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 text-black font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 active:scale-[0.99] transition cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
-                <span>Creazione chiavi crittografiche...</span>
+                <span>{t('creatingKeys', language)}</span>
               ) : (
                 <>
-                  <span>Entra in Cypher24</span>
+                  <span>{t('enterApp', language)}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

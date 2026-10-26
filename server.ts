@@ -1,8 +1,30 @@
+import 'dotenv/config';
 import express from 'express';
 import type { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import fs from 'fs';
 import path from 'path';
+import { GoogleGenAI } from '@google/genai';
+
+let aiClient: GoogleGenAI | null = null;
+function getAiClient(): GoogleGenAI | null {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || key === 'MY_GEMINI_API_KEY' || key.trim() === '') {
+    return null;
+  }
+  if (!aiClient) {
+    aiClient = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+  }
+  return aiClient;
+}
+
 
 interface UserProfile {
   userId: string;
@@ -549,6 +571,99 @@ app.delete('/api/conversations', (req: Request, res: Response) => {
   }
 
   res.json({ success: true, count });
+});
+
+// ============================================
+// 6. TRANSLATION API (Powered by Gemini)
+// ============================================
+const translationCache = new Map<string, string>();
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  it: 'Italian',
+  en: 'English',
+  fr: 'French',
+  es: 'Spanish',
+  zh: 'Simplified Chinese',
+  ru: 'Russian',
+};
+
+app.post('/api/translate', async (req: Request, res: Response) => {
+  const { text, targetLang, sourceLang } = req.body;
+
+  if (!text || typeof text !== 'string') {
+    res.status(400).json({ error: 'Testo da tradurre mancante' });
+    return;
+  }
+
+  const cleanText = text.trim();
+  if (!cleanText) {
+    res.json({ success: true, translatedText: '' });
+    return;
+  }
+
+  const target = (targetLang || 'it').toLowerCase();
+  const targetName = LANGUAGE_NAMES[target] || 'Italian';
+  const cacheKey = `${target}:${cleanText}`;
+
+  if (translationCache.has(cacheKey)) {
+    res.json({
+      success: true,
+      translatedText: translationCache.get(cacheKey),
+      cached: true,
+    });
+    return;
+  }
+
+  const ai = getAiClient();
+  if (!ai) {
+    // If API key is not configured, gracefully return original text
+    res.json({
+      success: true,
+      translatedText: cleanText,
+      warning: 'GEMINI_API_KEY not configured',
+    });
+    return;
+  }
+
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Translation request timed out')), 6000)
+    );
+
+    const generatePromise = ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: `Translate the following chat message to ${targetName}:\n\n${cleanText}`,
+      config: {
+        systemInstruction:
+          'You are a high-speed, fluent real-time chat translator. Translate the given message faithfully into the target language. Keep all emojis, punctuation, capitalization, line breaks, and informal chat tone intact. Output ONLY the raw translated text, without quotes, explanations, prefixes, or markdown blocks.',
+        temperature: 0.2,
+      },
+    });
+
+    const response = await Promise.race([generatePromise, timeoutPromise]);
+    const translatedText = response.text?.trim() || cleanText;
+
+    // Cache translation (keep max 1000 items in cache)
+    if (translationCache.size > 1000) {
+      const firstKey = translationCache.keys().next().value;
+      if (firstKey) translationCache.delete(firstKey);
+    }
+    translationCache.set(cacheKey, translatedText);
+
+    res.json({
+      success: true,
+      translatedText,
+      targetLang: target,
+    });
+  } catch (error: any) {
+    console.error('Gemini translation error:', error);
+    // Graceful fallback to original text
+    res.json({
+      success: false,
+      translatedText: cleanText,
+      error: error?.message || 'Translation service temporarily unavailable',
+    });
+  }
 });
 
 // Vite Server

@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import type { UserProfile, AppTheme, ChatContact, GroupChat } from '../types';
+import type { UserProfile, AppTheme, AppLanguage, ChatContact, GroupChat } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { LanguageSelector } from './LanguageSelector';
+import { t } from '../i18n/translations';
 import {
   Settings,
   Plus,
-  Search,
-  Shield,
   Copy,
   Check,
   QrCode,
   Clock,
   Users,
-  UserPlus,
+  Globe,
+  Sparkles,
 } from 'lucide-react';
 
 interface Props {
@@ -27,6 +28,8 @@ interface Props {
   currentTheme: AppTheme;
   onSelectTheme: (theme: AppTheme) => void;
   onShowQR: () => void;
+  currentLanguage?: AppLanguage;
+  onSelectLanguage?: (lang: AppLanguage) => void;
 }
 
 export const Sidebar: React.FC<Props> = ({
@@ -42,6 +45,8 @@ export const Sidebar: React.FC<Props> = ({
   currentTheme,
   onSelectTheme,
   onShowQR,
+  currentLanguage = 'it',
+  onSelectLanguage,
 }) => {
   const [newChatInput, setNewChatInput] = useState('');
   const [isStartingChat, setIsStartingChat] = useState(false);
@@ -49,6 +54,7 @@ export const Sidebar: React.FC<Props> = ({
   const [copiedId, setCopiedId] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups'>('all');
+  const [showLanguagePopover, setShowLanguagePopover] = useState(false);
 
   const handleCopyMyId = () => {
     navigator.clipboard.writeText(currentUser.userId);
@@ -62,7 +68,7 @@ export const Sidebar: React.FC<Props> = ({
     if (!cleanId) return;
 
     if (cleanId === currentUser.userId.toLowerCase()) {
-      setErrorMessage('Non puoi avviare una chat con te stesso');
+      setErrorMessage(currentLanguage === 'it' ? 'Non puoi avviare una chat con te stesso' : 'Cannot chat with yourself');
       setTimeout(() => setErrorMessage(null), 3000);
       return;
     }
@@ -74,7 +80,7 @@ export const Sidebar: React.FC<Props> = ({
       if (success) {
         setNewChatInput('');
       } else {
-        setErrorMessage(`Utente @${cleanId} non trovato. Controlla l'ID.`);
+        setErrorMessage(`@${cleanId} not found`);
         setTimeout(() => setErrorMessage(null), 4000);
       }
     } finally {
@@ -100,13 +106,67 @@ export const Sidebar: React.FC<Props> = ({
 
   return (
     <aside className="w-full lg:w-80 xl:w-96 flex flex-col h-full bg-[var(--theme-surface)] border-r border-[var(--theme-border)] shrink-0">
-      {/* User Header Profile Card */}
+      {/* User Header Profile Card with Logo Branding */}
       <div className="p-4 border-b border-[var(--theme-border)] bg-[var(--theme-surface-elevated)]/50">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+          {/* Logo Branding */}
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+              alt="Cypher24 Logo"
+              className="w-8 h-8 rounded-xl object-cover shadow-sm ring-1 ring-[var(--theme-accent-color)]/30"
+            />
+            <div className="leading-tight">
+              <span className="font-extrabold text-sm text-white tracking-tight block">
+                Cypher24
+              </span>
+              <span className="text-[10px] font-mono text-[var(--theme-accent-color)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>24h E2E</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Language Switcher Button */}
+          {onSelectLanguage && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowLanguagePopover(!showLanguagePopover)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs border border-white/10 transition cursor-pointer"
+                title="Cambia Lingua / Switch Language"
+              >
+                <Globe className="w-3.5 h-3.5 text-sky-400" />
+                <span className="uppercase font-mono text-[11px] font-bold">{currentLanguage}</span>
+              </button>
+
+              {showLanguagePopover && (
+                <div className="absolute right-0 top-full mt-2 w-48 p-2 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                  <div className="text-[10px] text-slate-400 font-semibold px-2 py-1 mb-1">
+                    {t('chooseLanguage', currentLanguage)}
+                  </div>
+                  <div className="space-y-1">
+                    <LanguageSelector
+                      compact
+                      currentLanguage={currentLanguage}
+                      onSelectLanguage={(lang) => {
+                        onSelectLanguage(lang);
+                        setShowLanguagePopover(false);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Current User Row */}
         <div className="flex items-center justify-between">
           <button
             onClick={onOpenProfile}
             className="flex items-center gap-3 text-left group min-w-0 cursor-pointer"
-            title="Impostazioni profilo e foto"
+            title={t('settings', currentLanguage)}
           >
             <div className="relative shrink-0">
               <img
@@ -128,11 +188,11 @@ export const Sidebar: React.FC<Props> = ({
           </button>
 
           <div className="flex items-center gap-1">
-            <PWAInstallButton />
+            <PWAInstallButton currentLanguage={currentLanguage} />
             <button
               onClick={onOpenProfile}
               className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
-              title="Notifiche, profilo e temi"
+              title={t('settings', currentLanguage)}
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -140,9 +200,9 @@ export const Sidebar: React.FC<Props> = ({
         </div>
 
         {/* Share ID banner */}
-        <div className="mt-3.5 flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/5 text-xs">
+        <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-black/40 border border-white/5 text-xs">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[11px] text-slate-400">ID per condividere:</span>
+            <span className="text-[11px] text-slate-400">{t('shareId', currentLanguage)}</span>
             <span className="font-mono font-semibold text-white truncate select-all">
               @{currentUser.userId}
             </span>
@@ -152,7 +212,7 @@ export const Sidebar: React.FC<Props> = ({
             <button
               onClick={handleCopyMyId}
               className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 transition cursor-pointer"
-              title="Copia ID"
+              title={t('copyId', currentLanguage)}
             >
               {copiedId ? (
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -163,7 +223,7 @@ export const Sidebar: React.FC<Props> = ({
             <button
               onClick={onShowQR}
               className="p-1.5 rounded-lg bg-[var(--theme-accent-color)]/20 hover:bg-[var(--theme-accent-color)]/30 text-[var(--theme-accent-color)] transition cursor-pointer"
-              title="Mostra QR per iPhone"
+              title={t('showQr', currentLanguage)}
             >
               <QrCode className="w-3.5 h-3.5" />
             </button>
@@ -176,7 +236,7 @@ export const Sidebar: React.FC<Props> = ({
         <form onSubmit={handleStartChatSubmit} className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-semibold text-slate-300">
-              Inizia chat con ID
+              {t('startChat', currentLanguage)}
             </label>
             <button
               type="button"
@@ -184,7 +244,7 @@ export const Sidebar: React.FC<Props> = ({
               className="flex items-center gap-1 text-[11px] text-[var(--theme-accent-color)] hover:underline font-semibold cursor-pointer"
             >
               <Users className="w-3 h-3" />
-              <span>+ Crea Gruppo</span>
+              <span>{t('newGroup', currentLanguage)}</span>
             </button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -194,7 +254,7 @@ export const Sidebar: React.FC<Props> = ({
                 type="text"
                 value={newChatInput}
                 onChange={(e) => setNewChatInput(e.target.value.toLowerCase())}
-                placeholder="id_amico"
+                placeholder={t('searchContact', currentLanguage)}
                 className="w-full pl-7 pr-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-[var(--theme-accent-color)] transition"
               />
             </div>
@@ -202,10 +262,10 @@ export const Sidebar: React.FC<Props> = ({
               type="submit"
               disabled={!newChatInput.trim() || isStartingChat}
               className="px-3 py-2 rounded-xl bg-[var(--theme-accent-color)] text-black font-bold text-xs hover:brightness-110 active:scale-95 disabled:opacity-40 transition cursor-pointer flex items-center gap-1 shrink-0"
-              title="Apri chat cifrata"
+              title={t('openChat', currentLanguage)}
             >
               <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Apri</span>
+              <span>{t('openChat', currentLanguage)}</span>
             </button>
           </div>
         </form>
@@ -225,7 +285,7 @@ export const Sidebar: React.FC<Props> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Tutte ({contacts.length + groups.length})
+            {t('allChats', currentLanguage)} ({contacts.length + groups.length})
           </button>
           <button
             type="button"
@@ -236,7 +296,7 @@ export const Sidebar: React.FC<Props> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Dirette ({contacts.length})
+            {t('directChats', currentLanguage)} ({contacts.length})
           </button>
           <button
             type="button"
@@ -247,7 +307,7 @@ export const Sidebar: React.FC<Props> = ({
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Gruppi ({groups.length})
+            {t('groupChats', currentLanguage)} ({groups.length})
           </button>
         </div>
       </div>
@@ -257,12 +317,16 @@ export const Sidebar: React.FC<Props> = ({
         {totalItems === 0 ? (
           <div className="py-12 px-4 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center mx-auto text-slate-400">
-              <Shield className="w-6 h-6 text-sky-400" />
+              <img
+                src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+                alt="Cypher24"
+                className="w-8 h-8 rounded-xl object-cover opacity-60"
+              />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Nessuna conversazione</p>
+              <p className="text-sm font-semibold text-white">{t('noChats', currentLanguage)}</p>
               <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                Cerca un ID sopra per aprire una chat o tocca <strong className="text-white">+ Crea Gruppo</strong>.
+                {t('noChatsDesc', currentLanguage)}
               </p>
             </div>
           </div>
@@ -311,7 +375,7 @@ export const Sidebar: React.FC<Props> = ({
 
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-xs text-slate-400 truncate pr-2">
-                        {group.lastMessagePreview || `${group.members.length} partecipanti`}
+                        {group.lastMessagePreview || `${group.members.length} ${t('participants', currentLanguage)}`}
                       </p>
 
                       <span className="text-[10px] text-sky-400 flex items-center gap-0.5 font-mono">
@@ -386,7 +450,7 @@ export const Sidebar: React.FC<Props> = ({
       <div className="p-3 border-t border-[var(--theme-border)] bg-[var(--theme-surface-elevated)]/30 flex items-center justify-between text-xs text-slate-400">
         <span className="flex items-center gap-1.5 text-[11px]">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span>E2E & Wipe 24h attivo</span>
+          <span>{t('autoWipe', currentLanguage)} · E2E</span>
         </span>
 
         {/* 4 Mini Theme Dots */}

@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import type { DecryptedMessage } from '../types';
+import type { DecryptedMessage, AppLanguage } from '../types';
 import { getRemainingTimeFormatted } from '../utils/avatar';
+import { formatExpiryText, t } from '../i18n/translations';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
-import { Flame, Lock, CheckCheck, Eye, EyeOff, Play, ShieldAlert } from 'lucide-react';
+import { Flame, Lock, CheckCheck, Eye, EyeOff, Languages } from 'lucide-react';
 
 interface Props {
   message: DecryptedMessage;
   isMine: boolean;
   onBurnMessage: (messageId: string) => void;
   onOpenViewOnce: (message: DecryptedMessage) => void;
+  onToggleOriginal?: (messageId: string) => void;
+  onTranslateMessage?: (messageId: string) => void;
   senderPhoto?: string;
   senderName?: string;
   isGroup?: boolean;
+  currentLanguage?: AppLanguage;
 }
 
 export const MessageBubble: React.FC<Props> = ({
@@ -19,9 +23,11 @@ export const MessageBubble: React.FC<Props> = ({
   isMine,
   onBurnMessage,
   onOpenViewOnce,
+  onToggleOriginal,
   senderPhoto,
   senderName,
   isGroup,
+  currentLanguage = 'it',
 }) => {
   const [remaining, setRemaining] = useState(() => getRemainingTimeFormatted(message.expiresAt));
 
@@ -50,7 +56,22 @@ export const MessageBubble: React.FC<Props> = ({
   const strokeDashoffset = 37.7 * (1 - remaining.pctRemaining / 100);
 
   // View-Once status
-  const isViewOnceBurned = message.viewOnce && (message.viewed || message.isViewOnceOpenedLocally || !message.encryptedPayload);
+  const isViewOnceBurned =
+    message.viewOnce &&
+    (message.viewed || message.isViewOnceOpenedLocally || !message.encryptedPayload);
+
+  // Localized countdown string
+  const localizedExpiry = formatExpiryText(
+    remaining.hours,
+    remaining.minutes,
+    remaining.seconds,
+    currentLanguage
+  );
+
+  // Text message translation logic
+  const hasTranslation = Boolean(message.translatedContent && message.translatedContent !== message.decryptedContent);
+  const isShowingTranslated = hasTranslation && !message.showOriginal;
+  const displayedText = isShowingTranslated ? message.translatedContent : message.decryptedContent;
 
   return (
     <div className={`flex items-end gap-2 group mb-3.5 ${isMine ? 'justify-end' : 'justify-start'}`}>
@@ -91,7 +112,9 @@ export const MessageBubble: React.FC<Props> = ({
             <div className="flex items-center gap-2.5 py-2 px-3 rounded-xl bg-black/40 border border-white/5 text-slate-400 text-xs">
               <EyeOff className="w-4 h-4 text-rose-400 shrink-0" />
               <span className="italic">
-                {message.messageType === 'video' ? 'Video visualizzato e autodistrutto' : 'Foto visualizzata e autodistrutta'}
+                {message.messageType === 'video'
+                  ? t('viewOnceBurnedVideo', currentLanguage)
+                  : t('viewOnceBurnedPhoto', currentLanguage)}
               </span>
             </div>
           ) : (
@@ -106,10 +129,12 @@ export const MessageBubble: React.FC<Props> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <span className="block font-bold">
-                  {message.messageType === 'video' ? 'Video (Visualizza 1 volta)' : 'Foto (Visualizza 1 volta)'}
+                  {message.messageType === 'video'
+                    ? t('viewOnceCardVideo', currentLanguage)
+                    : t('viewOnceCardPhoto', currentLanguage)}
                 </span>
                 <span className="text-[10px] text-amber-400/80 mt-0.5 block">
-                  Tocca per aprire · Si autodistruggerà
+                  {t('viewOncePrompt', currentLanguage)}
                 </span>
               </div>
               <Eye className="w-4 h-4 shrink-0 text-amber-300" />
@@ -138,20 +163,46 @@ export const MessageBubble: React.FC<Props> = ({
           <div className="mb-2.5 rounded-xl overflow-hidden border border-black/20">
             <img
               src={message.decryptedContent}
-              alt="Immagine cifrata"
+              alt="Cifrata"
               className="max-h-80 w-auto object-cover rounded-xl"
               loading="lazy"
             />
           </div>
         ) : (
-          /* 5. TEXT MESSAGE */
-          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-            {message.decryptedContent || (
-              <span className="text-xs text-slate-400 italic flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 animate-pulse" /> Decifrazione in corso...
-              </span>
+          /* 5. TEXT MESSAGE (With Automatic / Manual Translation support) */
+          <div className="space-y-1.5">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+              {displayedText || (
+                <span className="text-xs text-slate-400 italic flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 animate-pulse" /> Decifrazione in corso...
+                </span>
+              )}
+            </p>
+
+            {hasTranslation && (
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10 text-[10px]">
+                <span className="inline-flex items-center gap-1 text-[var(--theme-accent-color)] font-medium">
+                  <Languages className="w-3 h-3 shrink-0" />
+                  <span>
+                    {isShowingTranslated
+                      ? t('translatedFrom', currentLanguage)
+                      : 'Originale'}
+                  </span>
+                </span>
+                {onToggleOriginal && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleOriginal(message.id)}
+                    className="text-slate-400 hover:text-white underline cursor-pointer transition text-[10px]"
+                  >
+                    {isShowingTranslated
+                      ? t('showOriginal', currentLanguage)
+                      : t('showTranslated', currentLanguage)}
+                  </button>
+                )}
+              </div>
             )}
-          </p>
+          </div>
         )}
 
         {/* Metadata bar: Visual Expiry Counter, Send Time, Checkmarks, Burn button */}
@@ -163,7 +214,7 @@ export const MessageBubble: React.FC<Props> = ({
                 ? 'bg-amber-500/15 border border-amber-500/30 text-amber-300 animate-pulse'
                 : 'bg-black/40 border border-white/10 text-slate-300'
             }`}
-            title={`Eliminazione automatica programmata per le ${expiresTimeFormatted} (24h dall'invio)`}
+            title={`Eliminazione programmata: ${expiresTimeFormatted}`}
           >
             {/* Circular mini gauge */}
             <svg className="w-3.5 h-3.5 -rotate-90 shrink-0" viewBox="0 0 16 16">
@@ -192,7 +243,7 @@ export const MessageBubble: React.FC<Props> = ({
 
             {/* Explicit Countdown Label */}
             <span className="font-semibold tracking-tight text-[10px]">
-              {remaining.text}
+              {localizedExpiry}
             </span>
           </div>
 

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { UserProfile, AppTheme } from '../types';
+import type { UserProfile, AppTheme, AppLanguage } from '../types';
 import { ThemeSelector } from './ThemeSelector';
+import { LanguageSelector } from './LanguageSelector';
+import { t } from '../i18n/translations';
 import { compressUserPhoto, generateDefaultAvatar } from '../utils/avatar';
 import { PWAInstallButton } from './PWAInstallButton';
 import {
@@ -24,18 +26,23 @@ import {
   LogOut,
   Upload,
   Bell,
-  BellOff,
   Volume2,
   VolumeX,
   Eye,
   EyeOff,
   Sparkles,
+  Globe,
+  Languages,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 
 interface Props {
   user: UserProfile;
   currentTheme: AppTheme;
+  currentLanguage: AppLanguage;
+  onSelectLanguage: (lang: AppLanguage) => void;
+  autoTranslate: boolean;
+  onToggleAutoTranslate: () => void;
   isOpen: boolean;
   onClose: () => void;
   onUpdateProfile: (displayName: string, avatar: string) => Promise<void>;
@@ -46,6 +53,10 @@ interface Props {
 export const ProfileModal: React.FC<Props> = ({
   user,
   currentTheme,
+  currentLanguage,
+  onSelectLanguage,
+  autoTranslate,
+  onToggleAutoTranslate,
   isOpen,
   onClose,
   onUpdateProfile,
@@ -158,9 +169,9 @@ export const ProfileModal: React.FC<Props> = ({
       playReceiveSound();
     }
     triggerSystemNotification({
-      title: 'Cypher24 · Notifica di Prova',
+      title: 'Cypher24 · Test',
       body: notifSettings.previewEnabled
-        ? 'Le notifiche per i nuovi messaggi funzionano correttamente!'
+        ? 'Notifiche e crittografia attive!'
         : 'Nuovo messaggio cifrato ricevuto',
     });
     setTestSent(true);
@@ -178,14 +189,21 @@ export const ProfileModal: React.FC<Props> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header */}
-        <div className="mb-6">
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            <span>Profilo & Notifiche</span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Gestisci la tua foto profilo, le notifiche per nuovi messaggi e i temi personalizzati
-          </p>
+        {/* Modal Header with Logo */}
+        <div className="mb-6 flex items-center gap-3">
+          <img
+            src="/assets/aistudio/Gemini_Generated_Image_5ive2u5ive2u5ive_01e06a00.jpg"
+            alt="Cypher24"
+            className="w-12 h-12 rounded-2xl object-cover ring-2 ring-[var(--theme-accent-color)]/30 shadow-md"
+          />
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-white">
+              {t('settings', currentLanguage)}
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Profilo, lingua, traduzione istantanea, temi e notifiche
+            </p>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -200,15 +218,15 @@ export const ProfileModal: React.FC<Props> = ({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[11px] font-semibold cursor-pointer"
-                title="Cambia foto profilo"
+                title={t('changePhoto', currentLanguage)}
               >
                 <Camera className="w-6 h-6 mb-1" />
-                <span>Carica</span>
+                <span>{t('changePhoto', currentLanguage)}</span>
               </button>
             </div>
 
             <div className="flex-1 text-center sm:text-left">
-              <h3 className="text-sm font-semibold text-white">Foto Profilo</h3>
+              <h3 className="text-sm font-semibold text-white">{t('photoProfile', currentLanguage)}</h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Carica una foto dalla galleria o fotocamera
               </p>
@@ -228,7 +246,7 @@ export const ProfileModal: React.FC<Props> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--theme-accent-color)]/20 hover:bg-[var(--theme-accent-color)]/30 text-[var(--theme-accent-color)] text-xs font-semibold border border-[var(--theme-accent-color)]/30 transition cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>Scegli Foto</span>
+                  <span>{t('choosePhoto', currentLanguage)}</span>
                 </button>
 
                 <button
@@ -237,16 +255,65 @@ export const ProfileModal: React.FC<Props> = ({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium border border-white/10 transition cursor-pointer"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  <span>Avatar Grafico</span>
+                  <span>{t('graphicAvatar', currentLanguage)}</span>
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/* LANGUAGE SELECTION & AUTOMATIC TRANSLATION */}
+          {/* ============================================================ */}
+          <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-white">{t('chooseLanguage', currentLanguage)}</h3>
+                  <p className="text-[11px] text-slate-400">Italiano, English, Français, Español, 中文, Русский</p>
+                </div>
+              </div>
+            </div>
+
+            <LanguageSelector
+              currentLanguage={currentLanguage}
+              onSelectLanguage={onSelectLanguage}
+            />
+
+            {/* Auto-Translation Toggle */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5 mt-2">
+              <div className="min-w-0 pr-3">
+                <div className="flex items-center gap-1.5">
+                  <Languages className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-semibold text-white">{t('autoTranslate', currentLanguage)}</span>
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5">
+                  {t('autoTranslateDesc', currentLanguage)}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={onToggleAutoTranslate}
+                className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                  autoTranslate ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 left-1 ${
+                    autoTranslate ? 'translate-x-5' : ''
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
           {/* User ID Section */}
           <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400">Il Tuo ID Univoco (senza password)</span>
+              <span className="text-xs font-medium text-slate-400">{t('shareId', currentLanguage)}</span>
               <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-mono">
                 <ShieldCheck className="w-3.5 h-3.5" /> E2E Attivo
               </span>
@@ -260,7 +327,7 @@ export const ProfileModal: React.FC<Props> = ({
               <button
                 onClick={handleCopyId}
                 className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition active:scale-95 cursor-pointer"
-                title="Copia ID"
+                title={t('copyId', currentLanguage)}
               >
                 {copiedId ? (
                   <Check className="w-4 h-4 text-emerald-400" />
@@ -272,7 +339,7 @@ export const ProfileModal: React.FC<Props> = ({
               <button
                 onClick={handleOpenQr}
                 className="p-2.5 rounded-xl bg-[var(--theme-accent-color)]/20 hover:bg-[var(--theme-accent-color)]/30 text-[var(--theme-accent-color)] border border-[var(--theme-accent-color)]/40 transition active:scale-95 cursor-pointer"
-                title="Mostra QR Code per iPhone / Condividi"
+                title={t('showQr', currentLanguage)}
               >
                 <QrCode className="w-4 h-4" />
               </button>
@@ -289,7 +356,7 @@ export const ProfileModal: React.FC<Props> = ({
                   <Bell className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-white">Notifiche Nuovi Messaggi</h3>
+                  <h3 className="text-xs font-bold text-white">{t('notifications', currentLanguage)}</h3>
                   <p className="text-[11px] text-slate-400">Ricevi avvisi sonori e di sistema</p>
                 </div>
               </div>
@@ -301,14 +368,14 @@ export const ProfileModal: React.FC<Props> = ({
                 title="Prova la notifica"
               >
                 {testSent ? <Check className="w-3 h-3 text-emerald-400" /> : <Sparkles className="w-3 h-3 text-amber-400" />}
-                <span>{testSent ? 'Inviata!' : 'Test Notifica'}</span>
+                <span>{testSent ? 'Inviata!' : t('testNotif', currentLanguage)}</span>
               </button>
             </div>
 
             {/* Toggle 1: System / Browser Push Notification */}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/5 border border-white/5">
               <div className="min-w-0 pr-3">
-                <span className="text-xs font-semibold text-white block">Notifiche del Dispositivo</span>
+                <span className="text-xs font-semibold text-white block">{t('deviceNotifs', currentLanguage)}</span>
                 <span className="text-[11px] text-slate-400 block mt-0.5">
                   {sysPermission === 'denied'
                     ? '⚠️ Bloccate nel browser. Abilita le notifiche nelle impostazioni del sito.'
@@ -344,7 +411,7 @@ export const ProfileModal: React.FC<Props> = ({
                   ) : (
                     <VolumeX className="w-3.5 h-3.5 text-slate-500" />
                   )}
-                  <span className="text-xs font-semibold text-white">Suono Notifiche</span>
+                  <span className="text-xs font-semibold text-white">{t('soundNotifs', currentLanguage)}</span>
                 </div>
                 <span className="text-[11px] text-slate-400 block mt-0.5">
                   Riproduci un segnale acustico alla ricezione di ogni messaggio
@@ -375,7 +442,7 @@ export const ProfileModal: React.FC<Props> = ({
                   ) : (
                     <EyeOff className="w-3.5 h-3.5 text-amber-400" />
                   )}
-                  <span className="text-xs font-semibold text-white">Anteprima Riservata</span>
+                  <span className="text-xs font-semibold text-white">{t('privacyPreview', currentLanguage)}</span>
                 </div>
                 <span className="text-[11px] text-slate-400 block mt-0.5">
                   {notifSettings.previewEnabled
@@ -403,7 +470,7 @@ export const ProfileModal: React.FC<Props> = ({
           {/* Display Name Edit Form */}
           <form onSubmit={handleSaveName} className="space-y-2">
             <label className="text-xs font-semibold text-slate-300 block">
-              Nome Visualizzato
+              {t('displayName', currentLanguage)}
             </label>
             <div className="flex gap-2">
               <input
@@ -411,7 +478,7 @@ export const ProfileModal: React.FC<Props> = ({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={30}
-                placeholder="Es. Marco Rossi"
+                placeholder="Es. Marco"
                 className="flex-1 px-3 py-2 rounded-xl bg-black/50 border border-white/15 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[var(--theme-accent-color)]"
               />
               <button
@@ -428,10 +495,10 @@ export const ProfileModal: React.FC<Props> = ({
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-slate-300">
-                Tema Personalizzato
+                {t('chooseTheme', currentLanguage)}
               </label>
               <span className="text-[11px] text-slate-400 capitalize">
-                Attuale: {currentTheme}
+                {currentTheme}
               </span>
             </div>
             <ThemeSelector currentTheme={currentTheme} onSelectTheme={onSelectTheme} />
@@ -440,10 +507,10 @@ export const ProfileModal: React.FC<Props> = ({
           {/* Installation on iPhone / Standalone */}
           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-white">App Web per iPhone & Desktop</p>
-              <p className="text-[11px] text-slate-400">Installa su schermata Home per notifiche e schermo intero</p>
+              <p className="text-xs font-semibold text-white">{t('iphoneReady', currentLanguage)}</p>
+              <p className="text-[11px] text-slate-400">{t('iphoneReadyDesc', currentLanguage)}</p>
             </div>
-            <PWAInstallButton />
+            <PWAInstallButton currentLanguage={currentLanguage} />
           </div>
 
           {/* Logout / Switch ID */}
@@ -454,7 +521,7 @@ export const ProfileModal: React.FC<Props> = ({
               className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 transition py-1 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Esci o cambia ID su questo dispositivo</span>
+              <span>{t('logout', currentLanguage)}</span>
             </button>
             <button
               type="button"
@@ -478,9 +545,9 @@ export const ProfileModal: React.FC<Props> = ({
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-base font-bold">Scansiona con iPhone</h3>
+            <h3 className="text-base font-bold">{t('showQr', currentLanguage)}</h3>
             <p className="text-xs text-slate-400 mt-1 mb-4">
-              Inquadra con la fotocamera per iniziare a chattare all'istante
+              Scansiona con la fotocamera per aprire la chat
             </p>
 
             <div className="p-3 bg-white rounded-2xl inline-block shadow-xl">

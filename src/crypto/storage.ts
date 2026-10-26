@@ -1,4 +1,5 @@
 import type { UserKeyBundle } from './e2e';
+import type { AppLanguage } from '../types';
 
 export type AppTheme = 'nero' | 'verde' | 'blu' | 'viola';
 
@@ -8,6 +9,7 @@ export interface StoredIdentity {
   avatar: string;
   keys: UserKeyBundle;
   theme: AppTheme;
+  language?: AppLanguage;
 }
 
 const DB_NAME = 'cypher24_vault';
